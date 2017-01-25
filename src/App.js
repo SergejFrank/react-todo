@@ -5,26 +5,26 @@ var STORAGE_KEY = 'todos';
 
 window.uuid = 0;
 
-var todoLocalDB = {
-    fetch: function () {
-        var todos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        todos.forEach(function (todo, index) {
-            todo.id = index
+var taskLocalDB = {
+    getAll: function () {
+        var tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        tasks.forEach(function (task, index) {
+            task.id = index
         })
-        window.uuid = todos.length;
-        return todos
+        window.uuid = tasks.length;
+        return tasks
     },
-    save: function (todos) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(todos))
+    save: function (tasks) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
     }
 }
 
-const TodoForm = ({addTodo}) => {
+const TaskForm = ({addTask}) => {
     let input;
 
     function handleKeyPress(e) {
-        if (e.charCode == 13 && input.value.replace(/\s/g, '') != '') {
-            addTodo(input.value);
+        if (e.charCode === 13 && input.value.replace(/\s/g, '') !== '') {
+            addTask(input.value);
             input.value = '';
         }
     }
@@ -38,18 +38,18 @@ const TodoForm = ({addTodo}) => {
     );
 };
 
-const Todo = ({todo, remove, status}) => {
+const Task = ({task, remove, status}) => {
     let checkbox;
 
-    return <li className={todo.done ? 'done': ''}>
-        <input  checked={todo.done} onChange={() => {status(todo,checkbox)}} ref={elem => { checkbox = elem }} type="checkbox"/>
-        <span>{todo.text}</span>
-        <button onClick={() => {remove(todo.id)}} className="delete-button">X</button></li>;
+    return <li className={task.done ? 'done': ''}>
+        <input  checked={task.done} onChange={() => {status(task,checkbox)}} ref={elem => { checkbox = elem }} type="checkbox"/>
+        <span>{task.text}</span>
+        <button onClick={() => {remove(task.id)}} className="delete-button">X</button></li>;
 }
 
-const TodoList = ({todos, remove,status}) => {
-    const list = todos.map((todo) => {
-        return (<Todo todo={todo} key={todo.id} remove={remove} status={status}/>)
+const TaskList = ({tasks, remove,status}) => {
+    const list = tasks.map((task) => {
+        return (<Task task={task} key={task.id} remove={remove} status={status}/>)
     });
 
     return (<ul className="task-list">{list}</ul>);
@@ -66,42 +66,41 @@ class TodoApp extends React.Component {
     }
 
     componentDidMount(){
-        this.setState({data:todoLocalDB.fetch()});
+        this.setState({data:taskLocalDB.getAll()});
     }
 
     updateData(data) {
         this.setState({data: data});
-        todoLocalDB.save(this.state.data);
+        taskLocalDB.save(data);
     }
 
-    addTodo(val) {
-        const todo = {text: val, id: window.uuid++, done: false}
-        this.state.data.push(todo);
+    addTask(val) {
+        const task = {text: val, id: window.uuid++, done: false}
+        this.state.data.push(task);
         this.updateData(this.state.data);
     }
 
     handleRemove(id) {
-        const remainder = this.state.data.filter((todo) => {
-            if (todo.id !== id) return todo;
+        const remainder = this.state.data.filter((task) => {
+            if (task.id !== id) return task;
         });
-
         this.updateData(remainder);
     }
 
-    toggleDone(todo,checkbox) {
-        todo.done = checkbox.checked;
+    setTaskStatus(task, checkbox) {
+        task.done = checkbox.checked;
         this.updateData(this.state.data);
     }
 
     render() {
         return (
             <div className="wrap">
-                <TodoList
-                    todos={this.state.data}
+                <TaskList
+                    tasks={this.state.data}
                     remove={this.handleRemove.bind(this)}
-                    status={this.toggleDone.bind(this)}
+                    status={this.setTaskStatus.bind(this)}
                 />
-                <TodoForm addTodo={this.addTodo.bind(this)}/>
+                <TaskForm addTask={this.addTask.bind(this)}/>
             </div>
         );
     }
