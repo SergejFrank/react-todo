@@ -1,23 +1,8 @@
 import React, {Component} from 'react';
 import './App.css';
+import axios from 'axios';
+import uuid from 'uuid';
 
-var STORAGE_KEY = 'todos';
-
-window.uuid = 0;
-
-var taskLocalDB = {
-    getAll: function () {
-        var tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        tasks.forEach(function (task, index) {
-            task.id = index
-        })
-        window.uuid = tasks.length;
-        return tasks
-    },
-    save: function (tasks) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
-    }
-}
 
 const TaskForm = ({addTask}) => {
     let input;
@@ -40,16 +25,37 @@ const TaskForm = ({addTask}) => {
 
 const Task = ({task, remove, status}) => {
     let checkbox;
+    let checkboxId = "checkbox-"+task.id;
 
     return <li className={task.done ? 'done': ''}>
-        <input  checked={task.done} onChange={() => {status(task,checkbox)}} ref={elem => { checkbox = elem }} type="checkbox"/>
-        <span>{task.text}</span>
-        <button onClick={() => {remove(task.id)}} className="delete-button">X</button></li>;
+        <button onClick={() => {remove(task.id)}} className="delete-button">X</button>
+
+        <label htmlFor={checkboxId} className="control control--checkbox">
+            <span>{task.text}</span>
+            <input id={checkboxId} checked={task.done} onChange={() => {status(task,checkbox)}} ref={elem => { checkbox = elem }}  type="checkbox"/>
+            <div className="control__indicator"></div>
+        </label>
+
+    </li>;
 }
 
-const TaskList = ({tasks, remove,status}) => {
-    const list = tasks.map((task) => {
+const TaskList = ({tasks, remove, status, filter}) => {
+    let list = tasks.map((task) => {
         return (<Task task={task} key={task.id} remove={remove} status={status}/>)
+    });
+
+    list = list.filter((item) => {
+        let taskStatus = item.props.task.done;
+        if (!filter) {
+            return true;
+        }
+        else if (filter == "done" && taskStatus) {
+            return true;
+        }
+        else if (filter == "undone" && !taskStatus) {
+            return true;
+        }
+        return false;
     });
 
     return (<ul className="task-list">{list}</ul>);
@@ -61,35 +67,56 @@ class TodoApp extends React.Component {
         super();
 
         this.state = {
-            data: []
-        }
+            data: [],
+            filter: null,
+        };
+
+        this.apiUrl = 'http://58876c6942c3cb120016724c.mockapi.io/api/task/';
     }
 
     componentDidMount(){
-        this.setState({data:taskLocalDB.getAll()});
+        this.updateData();
     }
 
-    updateData(data) {
-        this.setState({data: data});
-        taskLocalDB.save(data);
+    updateData() {
+        fetch(this.apiUrl)
+        .then(result=>result.json())
+        .then(tasks=>this.setState({data: tasks}))
     }
 
     addTask(val) {
-        const task = {text: val, id: window.uuid++, done: false}
-        this.state.data.push(task);
-        this.updateData(this.state.data);
+        const task = {text: val, done: false};
+        console.log(task);
+        axios.post(this.apiUrl, task)
+        .then((res) => {
+                this.state.data.push(res.data);
+            console.log(this.state.data);
+                this.setState({data: this.state.data});
+        });
     }
 
     handleRemove(id) {
-        const remainder = this.state.data.filter((task) => {
-            if (task.id !== id) return task;
+        axios.delete(this.apiUrl+id)
+        .then((res) => {
+            this.updateData();
         });
-        this.updateData(remainder);
     }
 
     setTaskStatus(task, checkbox) {
         task.done = checkbox.checked;
-        this.updateData(this.state.data);
+
+        axios.put(this.apiUrl+task.id, task)
+            .then((res) => {
+                this.setState({data: this.state.data});
+            });
+    }
+
+    tasksLeft(){
+        var tasks = this.state.data.filter((item) => {
+            return !item.done;
+        });
+
+        return tasks.length;
     }
 
     render() {
@@ -99,10 +126,20 @@ class TodoApp extends React.Component {
                     tasks={this.state.data}
                     remove={this.handleRemove.bind(this)}
                     status={this.setTaskStatus.bind(this)}
+                    filter={this.state.filter}
                 />
+                <div className="filters">
+                    <span>{this.tasksLeft()} item{this.tasksLeft() > 1 || this.tasksLeft() == 0 ? 's': ''} left</span>
+                    <ul>
+                        <li onClick={() => this.setState({filter: null})}       className={this.state.filter == null      ? 'active': ''}>All</li>
+                        <li onClick={() => this.setState({filter: "undone"})}   className={this.state.filter == "undone"  ? 'active': ''}>Active</li>
+                        <li onClick={() => this.setState({filter: "done"})}     className={this.state.filter == "done"    ? 'active': ''}>Completed</li>
+                    </ul>
+                </div>
                 <TaskForm addTask={this.addTask.bind(this)}/>
             </div>
         );
+        let tasksLeft = this.tasksLeft();
     }
 }
 
